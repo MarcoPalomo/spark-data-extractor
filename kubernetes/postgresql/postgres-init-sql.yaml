@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-sql
+  namespace: data-pipeline
+data:
+  00-init.sql: |
+    -- Optional bootstrap for Airflow metadata DB (idempotent where possible)
+
+    -- Ensure role exists with password; adjust if you rotate creds via Secret
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'airflow') THEN
+        CREATE ROLE airflow LOGIN PASSWORD 'airflow';
+      END IF;
+    END$$;
+
+    -- Create database owned by airflow if not exists
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM pg_database WHERE datname = 'airflow'
+      ) THEN
+        PERFORM dblink_exec('dbname=postgres', 'CREATE DATABASE airflow OWNER airflow');
+      END IF;
+    END$$ LANGUAGE plpgsql;
+
+    -- If dblink is unavailable, fallback attempt (will error if exists, safe to ignore in init logs):
+    -- CREATE DATABASE airflow OWNER airflow;
+
+    \connect airflow;
+
+    -- Useful extensions (ignore errors if not available)
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+    -- Ensure schema and privileges
+    ALTER SCHEMA public OWNER TO airflow;
+    GRANT ALL PRIVILEGES ON SCHEMA public TO airflow;
+    GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
+
+    -- Default privileges for future objects created by airflow
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO airflow;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO airflow;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO airflow;
