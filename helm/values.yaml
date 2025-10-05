@@ -1,0 +1,73 @@
+airflow:
+  replicas:
+    webserver: 1
+    scheduler: 1
+  
+  image:
+    repository: apache/airflow
+    tag: "2.7.3"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    webserver:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    scheduler:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+
+  # Use LocalExecutor (no workers)
+  executor: LocalExecutor
+
+  # Webserver config (service and env)
+  webserver:
+    service:
+      type: ClusterIP
+      port: 8080
+    env:
+      - name: AIRFLOW__CORE__LOAD_EXAMPLES
+        value: "False"
+      - name: AIRFLOW__CORE__FERNET_KEY
+        value: "please_set_a_real_fernet_key"
+      - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+        value: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+
+  # Scheduler env
+  scheduler:
+    env:
+      - name: AIRFLOW__CORE__LOAD_EXAMPLES
+        value: "False"
+      - name: AIRFLOW__CORE__FERNET_KEY
+        value: "please_set_a_real_fernet_key"
+      - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+        value: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "14"
+  # Disable PVC/PV persistence for your setup
+  persistence:
+    enabled: false
+  # Basic auth (recommend using chart's secret mechanism if available)
+  auth:
+    database: airflow
+    username: airflow
+    password: airflow
+  service:
+    port: 5432
+
+storage:
+  dags:
+    enabled: false
+  data:
+    enabled: false

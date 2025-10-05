@@ -1,0 +1,24 @@
+# Airflow image packaging project DAGs and source code
+FROM apache/airflow:2.7.3
+
+USER root
+
+# Create directories
+RUN mkdir -p /opt/airflow/dags \
+    && mkdir -p /opt/airflow/src \
+    && mkdir -p /opt/airflow/config
+
+# Copy project DAGs and source
+COPY dags/ /opt/airflow/dags/
+COPY src/ /opt/airflow/src/
+COPY config/ /opt/airflow/config/
+
+# Environment
+ENV PYTHONPATH="/opt/airflow/src:${PYTHONPATH}" \
+    AIRFLOW__CORE__LOAD_EXAMPLES="False"
+
+USER airflow
+
+# Default command (webserver/scheduler are specified by K8s manifests)
+CMD ["bash", "-lc", "airflow version && sleep infinity"]
+

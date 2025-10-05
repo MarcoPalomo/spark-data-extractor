@@ -1,0 +1,30 @@
+# Spark image for running jobs via spark-submit on Kubernetes (cluster mode)
+# This image adds Hadoop AWS dependencies for s3a (MinIO/S3) and embeds the transform job.
+
+FROM bitnami/spark:3.5
+
+USER root
+
+# Install Hadoop AWS and AWS SDK jars compatible with Hadoop 3.3.x
+# Adjust versions if your base image uses a different Hadoop version.
+ENV HADOOP_AWS_VERSION=3.3.4 \
+    AWS_SDK_BUNDLE_VERSION=1.12.262
+
+RUN mkdir -p /opt/bitnami/spark/jars && \
+    curl -fsSL -o /opt/bitnami/spark/jars/hadoop-aws-${HADOOP_AWS_VERSION}.jar \
+      https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_AWS_VERSION}/hadoop-aws-${HADOOP_AWS_VERSION}.jar && \
+    curl -fsSL -o /opt/bitnami/spark/jars/aws-java-sdk-bundle-${AWS_SDK_BUNDLE_VERSION}.jar \
+      https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/${AWS_SDK_BUNDLE_VERSION}/aws-java-sdk-bundle-${AWS_SDK_BUNDLE_VERSION}.jar
+
+# Create DAGs path to match local:/// path used by spark-submit in the DAG
+RUN mkdir -p /opt/airflow/dags/spark_jobs
+
+# Copy the transform job into the image
+COPY dags/spark_jobs/transform_job.py /opt/airflow/dags/spark_jobs/transform_job.py
+
+USER 1001
+
+ENV SPARK_MODE=cluster
+
+ENTRYPOINT ["/opt/bitnami/scripts/spark/entrypoint.sh"]
+CMD ["/opt/bitnami/scripts/spark/run.sh"]
