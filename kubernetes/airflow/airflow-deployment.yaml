@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: data-pipeline
+  labels:
+    app: airflow
+    component: webserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow
+      component: webserver
+  template:
+    metadata:
+      labels:
+        app: airflow
+        component: webserver
+    spec:
+      serviceAccountName: spark # reuse SA if you plan to run K8sPodOperator from webserver/scheduler
+      containers:
+        - name: webserver
+          image: apache/airflow:2.7.3
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: LocalExecutor
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: "False"
+            - name: AIRFLOW__WEBSERVER__RBAC
+              value: "True"
+            - name: AIRFLOW__CORE__FERNET_KEY
+              value: "please_set_a_real_fernet_key"
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              value: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+          ports:
+            - containerPort: 8080
+              name: http
+          args: ["webserver"]
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 20
